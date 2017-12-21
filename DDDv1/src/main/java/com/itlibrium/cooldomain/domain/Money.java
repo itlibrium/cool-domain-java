@@ -1,6 +1,8 @@
 package com.itlibrium.cooldomain.domain;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Objects;
 
 public class Money {
     public static final Money ZERO = new Money(BigDecimal.ZERO);
@@ -42,5 +44,29 @@ public class Money {
 
     public boolean lessThan(Money other) {
         return _value.compareTo(other._value) == -1;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Money money = (Money) o;
+        return round(_value).equals(round(money._value));
+    }
+
+    private static BigDecimal round(BigDecimal in) {
+        return in.setScale(2, RoundingMode.CEILING);
+    }
+    @Override
+    public int hashCode() {
+
+        return Objects.hash(_value);
+    }
+
+    @Override
+    public String toString() {
+        return "Money{" +
+                "_value=" + _value +
+                '}';
     }
 }

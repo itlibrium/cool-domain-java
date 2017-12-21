@@ -16,9 +16,11 @@ public class Intervention {
     private final List<ServiceActionType> serviceActionTypes;
 
     private List<ServiceAction> serviceActions;
+
+    @Getter
     private Money price;
 
-    public static Intervention CreateFor(int clientId, int engineerId, Collection<ServiceActionType> serviceActionTypes) {
+    public static Intervention createFor(int clientId, int engineerId, Collection<ServiceActionType> serviceActionTypes) {
         return new Intervention(clientId, engineerId, serviceActionTypes);
     }
 
