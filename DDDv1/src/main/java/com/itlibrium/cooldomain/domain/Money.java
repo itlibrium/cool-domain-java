@@ -11,6 +11,11 @@ public class Money {
         return new Money(value);
     }
 
+    public static Money fromDouble(double value) {
+        return Money.fromDecimal(BigDecimal.valueOf(value));
+    }
+
+
     public static Money sum(Money money1, Money money2) {
         return new Money(money1._value.add(money2._value));
     }
