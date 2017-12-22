@@ -4,6 +4,7 @@ import com.itlibrium.cooldomain.crud.EquipmentModel
 import com.itlibrium.cooldomain.crud.PricingCategory
 import com.itlibrium.cooldomain.domain.Contract
 import com.itlibrium.cooldomain.domain.ContractImpl
+import com.itlibrium.cooldomain.domain.ContractLimits
 import com.itlibrium.cooldomain.domain.ContractRepository
 import com.itlibrium.cooldomain.domain.Intervention
 import com.itlibrium.cooldomain.domain.InterventionDuration
@@ -73,7 +74,7 @@ class AcceptanceTest extends Specification {
             serviceIsFinished();
         then:
             getInterventionPrice() == Money.fromDouble(total);
-            //TODO check limit used
+            getInterventionsLimitUsed() == i10sUsedAfter;
         where:
             i10nsLimit | i10nsUsedBefore | actionType       || total | i10sUsedAfter
                  2     |    0            |  Repair          || 0     |     1
@@ -96,7 +97,7 @@ class AcceptanceTest extends Specification {
             serviceIsFinished();
         then:
             getInterventionPrice() == Money.fromDouble(total);
-            //TODO check limit used
+            getSparePartsLimitUsed() == Money.fromDouble(limitUsedAfter);
         where:
             partsLimit | limitUsedBefore | actionType       | usedParts    || total | limitUsedAfter
                  100   |    0            |  Repair          |  [5,5]       || 0     |     100
@@ -113,11 +114,20 @@ class AcceptanceTest extends Specification {
     }
 
     void serviceIsFinished() {
+        setupContractData();
         FinishInterventionHandler handler =
                 getFinishInterventionHandler(_minPrice, _pricePerHour, _sparePartsPrices );
         FinishInterventionCommand finishInterventionCommand =
                 getFinishInterventionCommand(_duration, _usedParts, _actionType);
         handler.finish(finishInterventionCommand);
+    }
+
+    void setupContractData() {
+        def contract = new ContractImpl(
+                _interventionsLimit, Money.fromDouble(_sparePartsLimit),
+                _interventionsUsed, Money.fromDouble(_sparePartsLimitUsed)
+        );
+        _contractRepository.save(contract);
     }
 
 
@@ -139,6 +149,18 @@ class AcceptanceTest extends Specification {
 
     Money getInterventionPrice() {
        return _interventionRepository.get(1).getPrice();
+    }
+
+    Money getSparePartsLimitUsed() {
+        getContractLimits().getSparePartsCostLimit().getUsed();
+    }
+
+    int getInterventionsLimitUsed() {
+        getContractLimits().getFreeInterventionsLimit().getUsed();
+    }
+
+    private ContractLimits getContractLimits() {
+        _contractRepository.getForClient(1).getContractLimits()
     }
 
     PricePolicyFactoryImpl.CrmFacade getCrmFacade(BigDecimal minimalValue, BigDecimal pricePerHour,
