@@ -8,7 +8,8 @@ import java.util.List;
 @Data
 public class EquipmentModel
 {
-    private int id;
-    private String name;
-    private PricingCategory pricingCategory;
+    private final  int id;
+    private final String name;
+    private final PricingCategory pricingCategory;
+    private final int freeInterventionTimeLimit;
 }

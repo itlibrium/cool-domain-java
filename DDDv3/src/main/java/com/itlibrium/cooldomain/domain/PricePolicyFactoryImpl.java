@@ -27,6 +27,7 @@ public class PricePolicyFactoryImpl implements PricePolicyFactory {
     public PricePolicy createFor(Intervention intervention) {
         PricingCategory pricingCategory = crmFacade.getPricingCategoryForClient(intervention.getClientId());
         Map<Integer, Money> sparePartPrices = sparePartsFacade.getPrices();
+        EquipmentModel equipmentModel = crmFacade.GetEquipmentModelForClient(intervention.getClientId());
 
         return PricePolicies.sum(
                 PricePolicies.when(
@@ -36,7 +37,8 @@ public class PricePolicyFactoryImpl implements PricePolicyFactory {
                         PricePolicies.sum(
                                 PricePolicies.labour(
                                         Money.fromDecimal(pricingCategory.getPricePerHour()),
-                                        Money.fromDecimal(pricingCategory.getMinPrice())),
+                                        Money.fromDecimal(pricingCategory.getMinPrice()),
+                                        InterventionDuration.FromHours(equipmentModel.getFreeInterventionTimeLimit())),
                                 PricePolicies.sparePartsCost(sparePartPrices))),
                 PricePolicies.when(
                         serviceAction ->

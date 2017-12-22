@@ -2,12 +2,17 @@ import com.itlibrium.cooldomain.app.FinishInterventionCommand
 import com.itlibrium.cooldomain.app.FinishInterventionHandler
 import com.itlibrium.cooldomain.crud.EquipmentModel
 import com.itlibrium.cooldomain.crud.PricingCategory
+import com.itlibrium.cooldomain.domain.Contract
+import com.itlibrium.cooldomain.domain.ContractImpl
+import com.itlibrium.cooldomain.domain.ContractRepository
 import com.itlibrium.cooldomain.domain.Intervention
 import com.itlibrium.cooldomain.domain.InterventionDuration
 import com.itlibrium.cooldomain.domain.InterventionRepository
 import com.itlibrium.cooldomain.domain.Money
 import com.itlibrium.cooldomain.domain.PricePolicyFactory
 import com.itlibrium.cooldomain.domain.PricePolicyFactoryImpl
+import com.itlibrium.cooldomain.domain.PricingService
+import com.itlibrium.cooldomain.domain.PricingServiceImpl
 import com.itlibrium.cooldomain.domain.ServiceAction
 import com.itlibrium.cooldomain.domain.ServiceActionType
 import spock.lang.Specification
@@ -16,7 +21,8 @@ import static com.itlibrium.cooldomain.domain.ServiceActionType.*
 
 class AcceptanceTest extends Specification {
 
-    def _interventionRepository = getSingleValueRepo();
+    def _interventionRepository = getSingleValueInterventionRepo();
+    def _contractRepository = getSingleValueContractRepo();
 
     def _minPrice = 200;
     def _pricePerHour = 100;
@@ -116,10 +122,12 @@ class AcceptanceTest extends Specification {
 
 
     FinishInterventionHandler getFinishInterventionHandler(double minPrice, double pricePerHour, Map<Integer, Money> partsPrices) {
-        PricePolicyFactoryImpl.CrmFacade crmFacade = getCrmFacade(BigDecimal.valueOf(minPrice), BigDecimal.valueOf(pricePerHour));
+        PricePolicyFactoryImpl.CrmFacade crmFacade =
+                getCrmFacade(BigDecimal.valueOf(minPrice), BigDecimal.valueOf(pricePerHour), 100);
         PricePolicyFactoryImpl.SparePartsFacade sparePartsFacade = getSparePartsFacade(partsPrices);
         PricePolicyFactory pricePolicyFactory = new PricePolicyFactoryImpl(crmFacade, sparePartsFacade);
-        return new FinishInterventionHandler(_interventionRepository, pricePolicyFactory);
+        PricingService pricingService = new PricingServiceImpl(pricePolicyFactory);
+        return new FinishInterventionHandler(_interventionRepository, _contractRepository, pricingService);
     }
 
     FinishInterventionCommand getFinishInterventionCommand(int duration, List<Integer> usedPartsIds,
@@ -133,16 +141,18 @@ class AcceptanceTest extends Specification {
        return _interventionRepository.get(1).getPrice();
     }
 
-    PricePolicyFactoryImpl.CrmFacade getCrmFacade(BigDecimal minimalValue, BigDecimal pricePerHour) {
+    PricePolicyFactoryImpl.CrmFacade getCrmFacade(BigDecimal minimalValue, BigDecimal pricePerHour,
+                                                  int freeInterventionTimeLimit) {
+        PricingCategory pricingCategory = new PricingCategory(1, "Test", minimalValue, pricePerHour);
         return new PricePolicyFactoryImpl.CrmFacade() {
             @Override
             PricingCategory getPricingCategoryForClient(int clientId) {
-                return new PricingCategory(1, "Test", minimalValue, pricePerHour)
+                return pricingCategory;
             }
 
             @Override
             EquipmentModel GetEquipmentModelForClient(int clientId) {
-                return null
+                return new EquipmentModel(1, "TestEquipment", pricingCategory, freeInterventionTimeLimit);
             }
         }
     }
@@ -156,7 +166,7 @@ class AcceptanceTest extends Specification {
         }
     }
 
-    private InterventionRepository getSingleValueRepo() {
+    private InterventionRepository getSingleValueInterventionRepo() {
         new InterventionRepository() {
             private Intervention cachedIntervention = Intervention.createFor(1,1,
                     [Repair, Review, WarrantyRepair, WarrantyReview]);;
@@ -169,6 +179,25 @@ class AcceptanceTest extends Specification {
             @Override
             void save(Intervention intervention) {
                 cachedIntervention = intervention;
+            }
+        }
+    }
+
+    private ContractRepository getSingleValueContractRepo() {
+        new ContractRepository() {
+            private Contract cachedContract = new ContractImpl(
+                    0, Money.fromDouble(0),
+                    0, Money.fromDouble(0)
+            );
+
+            @Override
+            Contract getForClient(int id) {
+                return cachedContract;
+            }
+
+            @Override
+            void save(Contract contract) {
+                cachedContract = contract;
             }
         }
     }

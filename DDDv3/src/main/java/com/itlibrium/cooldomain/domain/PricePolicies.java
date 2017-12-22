@@ -8,18 +8,55 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
 public class PricePolicies {
-    public static PricePolicy labour(Money pricePerHour, Money minPrice) {
-        return serviceAction ->
-            Money.max(
-                Money.multiply(pricePerHour, serviceAction.getDuration().getHours()),
+    public static PricePolicy labour(Money pricePerHour, Money minPrice,
+                                     InterventionDuration freeInterventionTimeLimit) {
+        return context ->
+        {
+            FreeInterventionsLimit freeInterventionsLimit = context.getContractLimits().getFreeInterventionsLimit();
+            if (freeInterventionsLimit.usedInCurrentIntervention()) {
+                Money labourOverLimit = labourOverLimit(context, pricePerHour, freeInterventionTimeLimit);
+                return new Pricing(context.getContractLimits(), labourOverLimit);
+            }
+
+            if (freeInterventionsLimit.canUse()) {
+                ContractLimits modifiedContractLimits = context.getContractLimits().UseFreeIntervention();
+                Money labourOverLimit = labourOverLimit(context, pricePerHour, freeInterventionTimeLimit);
+                return new Pricing(modifiedContractLimits, labourOverLimit);
+            }
+
+            Money labour = labour(context, pricePerHour, minPrice);
+            return new Pricing(context.getContractLimits(), labour);
+        };
+    }
+
+    private static Money labour(PricingContext context, Money pricePerHour, Money minPrice) {
+        InterventionDuration duration = context.getServiceAction().getDuration();
+        return Money.max(
+                Money.multiply(pricePerHour, duration.getHours()),
                 minPrice);
     }
 
+    private static Money labourOverLimit(PricingContext context, Money pricePerHour,
+                                         InterventionDuration freeInterventionTimeLimit) {
+        InterventionDuration duration = context.getServiceAction().getDuration();
+        InterventionDuration timeOverLimit = InterventionDuration.subtract(duration, freeInterventionTimeLimit);
+        return Money.multiply(pricePerHour, timeOverLimit.getHours());
+    }
+
     public static PricePolicy sparePartsCost(Map<Integer, Money> sparePartPrices) {
-        return serviceAction ->
-            serviceAction.getSparePartIds().stream()
-                .map(sparePartPrices::get)
-                .reduce(Money.ZERO, Money::sum);
+        return context ->
+        {
+            Money sparePartsCostLimit = context.getContractLimits().getSparePartsCostLimit().getAvailable();
+            Money sparePartsCost = context.getServiceAction().getSparePartIds().stream()
+                    .map(sparePartPrices::get)
+                    .reduce(Money.ZERO, Money::sum);
+            Money discount = Money.min(sparePartsCost, sparePartsCostLimit);
+
+            ContractLimits modifiedContractLimits = context.getContractLimits().UseSparePartsCostLimit(discount);
+            return new Pricing(
+                    modifiedContractLimits,
+                    Money.subtract(sparePartsCost, discount));
+        };
     }
 
     public static PricePolicy free() {
@@ -31,7 +68,7 @@ public class PricePolicies {
     }
 
     public static PricePolicy fixed(Money value) {
-        return serviceAction -> value;
+        return context -> new Pricing(context.getContractLimits(), value);
     }
 
     public static PricePolicy sum(PricePolicy... policies) {
@@ -39,10 +76,17 @@ public class PricePolicies {
     }
 
     public static PricePolicy aggregate(Collection<PricePolicy> policies, BiFunction<Money, Money, Money> valueAggregator) {
-        return serviceAction ->
-            policies.stream()
-                .map(policy -> policy.apply(serviceAction))
-                .reduce(Money.ZERO, valueAggregator::apply);
+        return baseContext ->
+        {
+            Money total = Money.ZERO;
+            PricingContext context = baseContext;
+            for (PricePolicy policy : policies) {
+                Pricing pricing = policy.apply(context);
+                total = valueAggregator.apply(total, pricing.getValue());
+                context = new PricingContext(context.getServiceAction(), pricing.getContractLimits());
+            }
+            return new Pricing(context.getContractLimits(), total);
+        };
     }
 
     public static PricePolicy when(ServiceActionType[] types, PricePolicy policy) {
@@ -50,11 +94,11 @@ public class PricePolicies {
     }
 
     public static PricePolicy when(Predicate<ServiceAction> condition, PricePolicy policy) {
-        return serviceAction -> {
-            if (condition.test(serviceAction))
-                return policy.apply(serviceAction);
+        return context -> {
+            if (condition.test(context.getServiceAction()))
+                return policy.apply(context);
 
-            return Money.ZERO;
+            return new Pricing(context.getContractLimits(), Money.ZERO);
         };
     }
 }

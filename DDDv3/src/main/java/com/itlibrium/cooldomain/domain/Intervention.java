@@ -40,14 +40,13 @@ public class Intervention {
         this.serviceActions = new ArrayList<>(serviceActions);
     }
 
-    public void finish(Collection<ServiceAction> serviceActions, PricePolicy pricePolicy)
+    public void finish(Collection<ServiceAction> serviceActions, InterventionPricing interventionPricing)
             throws BusinessException {
+
         if (this.serviceActions != null)
             throw new BusinessException("Nie można zakończyć interwencji więcej niż raz");
 
         this.serviceActions = new ArrayList<>(serviceActions);
-        price =  this.serviceActions.stream()
-            .map(pricePolicy::apply)
-            .reduce(Money.ZERO, Money::sum);
+        price = interventionPricing.getTotalPrice();
     }
 }
