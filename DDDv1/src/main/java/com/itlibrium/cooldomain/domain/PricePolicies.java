@@ -22,18 +22,6 @@ public class PricePolicies {
                 .reduce(Money.ZERO, Money::sum);
     }
 
-    public static PricePolicy free() {
-        return fixed(Money.ZERO);
-    }
-
-    public static PricePolicy fixed(BigDecimal value) {
-        return fixed(Money.fromDecimal(value));
-    }
-
-    public static PricePolicy fixed(Money value) {
-        return serviceAction -> value;
-    }
-
     public static PricePolicy sum(PricePolicy... policies) {
         return aggregate(Arrays.asList(policies), Money::sum);
     }
@@ -43,18 +31,5 @@ public class PricePolicies {
             policies.stream()
                 .map(policy -> policy.apply(serviceAction))
                 .reduce(Money.ZERO, valueAggregator::apply);
-    }
-
-    public static PricePolicy when(ServiceActionType[] types, PricePolicy policy) {
-        return when(serviceAction -> Arrays.asList(types).contains(serviceAction.getType()), policy);
-    }
-
-    public static PricePolicy when(Predicate<ServiceAction> condition, PricePolicy policy) {
-        return serviceAction -> {
-            if (condition.test(serviceAction))
-                return policy.apply(serviceAction);
-
-            return Money.ZERO;
-        };
     }
 }
