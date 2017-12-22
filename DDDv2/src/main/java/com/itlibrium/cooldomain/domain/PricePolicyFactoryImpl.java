@@ -29,9 +29,19 @@ public class PricePolicyFactoryImpl implements PricePolicyFactory {
         Map<Integer, Money> sparePartPrices = sparePartsFacade.getPrices();
 
         return PricePolicies.sum(
-            PricePolicies.labour(
-                Money.fromDecimal(pricingCategory.getPricePerHour()),
-                Money.fromDecimal(pricingCategory.getMinPrice())),
-            PricePolicies.sparePartsCost(sparePartPrices));
+                PricePolicies.when(
+                        serviceAction ->
+                                serviceAction.getType() == ServiceActionType.Repair ||
+                                        serviceAction.getType() == ServiceActionType.Review,
+                        PricePolicies.sum(
+                                PricePolicies.labour(
+                                        Money.fromDecimal(pricingCategory.getPricePerHour()),
+                                        Money.fromDecimal(pricingCategory.getMinPrice())),
+                                PricePolicies.sparePartsCost(sparePartPrices))),
+                PricePolicies.when(
+                        serviceAction ->
+                                serviceAction.getType() == ServiceActionType.WarrantyRepair ||
+                                        serviceAction.getType() == ServiceActionType.WarrantyReview,
+                        PricePolicies.free()));
     }
 }
