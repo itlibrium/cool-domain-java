@@ -16,30 +16,54 @@ import static com.itlibrium.cooldomain.domain.ServiceActionType.*
 
 class AcceptanceTest extends Specification {
 
-    def interventionRepository = getSingleValueRepo();
+    def _interventionRepository = getSingleValueRepo();
+
+    def _minPrice = 200;
+    def _pricePerHour = 100;
+    def _sparePartsPrices = [:];
+
+    def _duration = 1;
+    def _usedParts = [];
+    def _actionType = Review;
+
+    def _interventionsLimit = 0;
+    def _interventionsUsed = 0;
+    def _sparePartsLimit = 0;
+    def _sparePartsLimitUsed = 0;
+
 
     def "Labour cost calculated correctly"() {
         given:
-            FinishInterventionHandler handler =
-                    getFinishInterventionHandler(minPrice, pricePerHour, [ 158 : Money.fromDouble(30),
-                                                                           333 : Money.fromDouble(40)]);
+        _minPrice = minPrice;
+        _pricePerHour = pricePerHour;
+        _sparePartsPrices = [ 158 : Money.fromDouble(30),
+                              333 : Money.fromDouble(40)];
+        _duration = duration;
+        _usedParts = usedPartsIds;
+        _actionType = actionType;
         when:
-            FinishInterventionCommand finishInterventionCommand =
-                    getFinishInterventionCommand(duration, usedPartsIds, actionType);
-            handler.finish(finishInterventionCommand);
+        serviceIsFinished();
         then:
-            getInterventionPrice() == Money.fromDouble(overallPrice);
+        getInterventionPrice() == Money.fromDouble(overallPrice);
         where:
-            minPrice | pricePerHour | duration | usedPartsIds| actionType     || overallPrice
-               200   |   100        |  4       |  []         | Review         ||     400
-               200   |   100        |  1       |  [158, 333] | Repair         ||     270
-               200   |   100        |  1       |  []         | Review         ||     200
-               200   |   100        |  0       |  [333]      | Repair         ||     240
-               300   |   100        |  0       |  []         | Review         ||     300
-               400   |   0          |  10      |  [158]      | Repair         ||     430
-               400   |   0          |  1       |  []         | WarrantyReview ||     0
-               200   |   100        |  2       |  [158]      | WarrantyRepair ||     0
+        minPrice | pricePerHour | duration | usedPartsIds| actionType     || overallPrice
+        200   |   100        |  4       |  []         | Review         ||     400
+        200   |   100        |  1       |  [158, 333] | Repair         ||     270
+        200   |   100        |  1       |  []         | Review         ||     200
+        200   |   100        |  0       |  [333]      | Repair         ||     240
+        300   |   100        |  0       |  []         | Review         ||     300
+        400   |   0          |  10      |  [158]      | Repair         ||     430
+        400   |   0          |  1       |  []         | WarrantyReview ||     0
+        200   |   100        |  2       |  [158]      | WarrantyRepair ||     0
 
+    }
+
+    void serviceIsFinished() {
+        FinishInterventionHandler handler =
+                getFinishInterventionHandler(_minPrice, _pricePerHour, _sparePartsPrices );
+        FinishInterventionCommand finishInterventionCommand =
+                getFinishInterventionCommand(_duration, _usedParts, _actionType);
+        handler.finish(finishInterventionCommand);
     }
 
 
@@ -47,7 +71,7 @@ class AcceptanceTest extends Specification {
         PricePolicyFactoryImpl.CrmFacade crmFacade = getCrmFacade(BigDecimal.valueOf(minPrice), BigDecimal.valueOf(pricePerHour));
         PricePolicyFactoryImpl.SparePartsFacade sparePartsFacade = getSparePartsFacade(partsPrices);
         PricePolicyFactory pricePolicyFactory = new PricePolicyFactoryImpl(crmFacade, sparePartsFacade);
-        return new FinishInterventionHandler(interventionRepository, pricePolicyFactory);
+        return new FinishInterventionHandler(_interventionRepository, pricePolicyFactory);
     }
 
     FinishInterventionCommand getFinishInterventionCommand(int duration, List<Integer> usedPartsIds,
@@ -58,7 +82,7 @@ class AcceptanceTest extends Specification {
     }
 
     Money getInterventionPrice() {
-       return interventionRepository.get(1).getPrice();
+        return _interventionRepository.get(1).getPrice();
     }
 
     PricePolicyFactoryImpl.CrmFacade getCrmFacade(BigDecimal minimalValue, BigDecimal pricePerHour) {
