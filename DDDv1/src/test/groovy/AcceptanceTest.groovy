@@ -26,12 +26,6 @@ class AcceptanceTest extends Specification {
     def _usedParts = [];
     def _actionType = Review;
 
-    def _interventionsLimit = 0;
-    def _interventionsUsed = 0;
-    def _sparePartsLimit = 0;
-    def _sparePartsLimitUsed = 0;
-
-
     def "Labour cost calculated correctly"() {
         given:
         _minPrice = minPrice;
