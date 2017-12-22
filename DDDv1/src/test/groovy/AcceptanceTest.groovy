@@ -55,8 +55,6 @@ class AcceptanceTest extends Specification {
        return interventionRepository.get(1).getPrice();
     }
 
-
-
     PricePolicyFactoryImpl.CrmFacade getCrmFacade(BigDecimal minimalValue, BigDecimal pricePerHour) {
         return new PricePolicyFactoryImpl.CrmFacade() {
             @Override
